@@ -1,0 +1,23 @@
+{
+  "name": "northwind-catalog-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Northwind Apparel legacy catalog transformer and Fynd ingestion helper for a private extension.",
+  "main": "src/extension-routes.js",
+  "bin": {
+    "northwind-catalog": "./bin/catalog-migrate.js"
+  },
+  "scripts": {
+    "validate": "node ./bin/catalog-migrate.js validate --input ./data/northwind_legacy_export.json --report ./reports/validation-report.json --markdown ./reports/validation-report.md",
+    "dry-run": "node ./bin/catalog-migrate.js dry-run --input ./data/northwind_legacy_export.json --out ./reports/fynd-product-payloads.json --report ./reports/validation-report.json --markdown ./reports/validation-report.md",
+    "ingest": "node ./bin/catalog-migrate.js ingest --input ./data/northwind_legacy_export.json --checkpoint ./reports/ingest-checkpoint.json --report ./reports/validation-report.json --markdown ./reports/validation-report.md",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@gofynd/fdk-client-javascript": "^3.0.0"
+  }
+}
+

@@ -1,0 +1,99 @@
+[
+  {
+    "Product Name": "Everyday Cotton Tee",
+    "SKU": "NW-TSH-001",
+    "Brand Name": "Northwind Apparel",
+    "size variants": "S/M/L",
+    "MRP": "₹1,299.00",
+    "Image URL": "https://example.com/northwind/everyday-cotton-tee.jpg",
+    "Description": "Core cotton crew neck tee.",
+    "Color": "Navy"
+  },
+  {
+    "name": "Everyday Cotton Tee - Duplicate",
+    "sku": "nw-tsh-001",
+    "brand": "Northwind Apparel",
+    "sizes": "XL",
+    "price": "Rs. 1,399",
+    "image": "https://example.com/northwind/everyday-cotton-tee-xl.jpg",
+    "description": "Duplicate SKU row that should be reported."
+  },
+  {
+    "title": "Missing SKU Denim Shirt",
+    "brand": "Northwind Apparel",
+    "available_sizes": "S,M",
+    "selling_price": "INR 2,499/-",
+    "primary_image": "https://example.com/northwind/denim-shirt.jpg"
+  },
+  {
+    "sku_code": "NW-JKT-404",
+    "brand": "Northwind Apparel",
+    "size": "M/L",
+    "list price": "₹4,999",
+    "image_url": "https://example.com/northwind/unnamed-jacket.jpg"
+  },
+  {
+    "item_name": "Linen Resort Shirt",
+    "Item Code": "NW-SHT-210",
+    "Brand": "Northwind Apparel",
+    "Size": "S | M | L | XL",
+    "Price": "INR 2,199",
+    "imageUrl": "https://example.com/northwind/linen-resort-shirt.jpg",
+    "description": "Lightweight linen blend shirt.",
+    "gender": "Men"
+  },
+  {
+    "Product Name": "Invalid Image Polo",
+    "SKU": "NW-PLO-310",
+    "Brand Name": "Northwind Apparel",
+    "sizes": "S/M",
+    "MRP": "₹1,899",
+    "Image URL": "htp://bad url",
+    "Description": "Bad image URL row."
+  },
+  "corrupted row from legacy export with no JSON fields",
+  {
+    "Product Name": "Bad Price Chinos",
+    "SKU": "NW-CHN-777",
+    "Brand Name": "Northwind Apparel",
+    "size variants": "32,34,36",
+    "MRP": "₹ --",
+    "Image URL": "https://example.com/northwind/chinos.jpg"
+  },
+  {
+    "title": "Stretch Chinos",
+    "seller_identifier": "NW-CHN-101",
+    "brand": "Northwind Apparel",
+    "available_sizes": "32,34,36",
+    "selling_price": "₹2,799",
+    "primary_image": "https://example.com/northwind/stretch-chinos.jpg",
+    "Color": "Khaki"
+  },
+  {
+    "name": "Boxy Graphic Tee",
+    "sku": "NW-TSH-118",
+    "brand": "Northwind Apparel",
+    "sizes": ["XS", "S", "M"],
+    "price": "$24.99",
+    "currency": "USD",
+    "image": "https://example.com/northwind/boxy-graphic-tee.png"
+  },
+  {
+    "Product Name": "Missing Size Hoodie",
+    "SKU": "NW-HDY-222",
+    "Brand Name": "Northwind Apparel",
+    "MRP": "₹3,499",
+    "Image URL": "https://example.com/northwind/missing-size-hoodie.jpg"
+  },
+  {
+    "Product Name": "Canvas Tote",
+    "SKU": "NW-ACC-010",
+    "Brand Name": "Northwind Apparel",
+    "size variants": "One Size",
+    "MRP": "₹699",
+    "Image URL": "https://example.com/northwind/canvas-tote.jpg",
+    "Description": "Reusable canvas tote bag.",
+    "Department": "Accessories"
+  }
+]
+

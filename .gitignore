@@ -1,0 +1,14 @@
+node_modules/
+.env
+reports/*.json
+reports/*.md
+reports/*.log
+reports/*.csv
+evidence/*.png
+evidence/*.jpg
+evidence/*.jpeg
+evidence/*.webp
+evidence/*.pdf
+!reports/.gitkeep
+!evidence/README.md
+
