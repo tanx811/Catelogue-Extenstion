@@ -11,6 +11,7 @@
     "validate": "node ./bin/catalog-migrate.js validate --input ./data/northwind_legacy_export.json --report ./reports/validation-report.json --markdown ./reports/validation-report.md",
     "dry-run": "node ./bin/catalog-migrate.js dry-run --input ./data/northwind_legacy_export.json --out ./reports/fynd-product-payloads.json --report ./reports/validation-report.json --markdown ./reports/validation-report.md",
     "ingest": "node ./bin/catalog-migrate.js ingest --input ./data/northwind_legacy_export.json --checkpoint ./reports/ingest-checkpoint.json --report ./reports/validation-report.json --markdown ./reports/validation-report.md",
+    "serverless:smoke": "node -e \"const rows=require('./data/northwind_legacy_export.json'); const {runServerless}=require('./serverless/boltic'); runServerless({httpMethod:'POST',path:'/dry-run',headers:{'content-type':'application/json'},body:JSON.stringify({rows})}).then((r)=>console.log(r.body))\"",
     "test": "node --test"
   },
   "engines": {
@@ -20,4 +21,3 @@
     "@gofynd/fdk-client-javascript": "^3.0.0"
   }
 }
-

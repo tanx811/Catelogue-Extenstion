@@ -1,0 +1,136 @@
+# Boltic Serverless Usage
+
+This project now has a serverless HTTP entrypoint at:
+
+```text
+serverless/boltic.js
+```
+
+The handler is intentionally portable because Boltic serverless public handler-shape documentation was not available during implementation. It supports the common Node.js serverless forms:
+
+- `module.exports = async function(event, context)`
+- `module.exports.handler = async function(event, context)`
+- `module.exports.default = async function(event, context)`
+- Express-like `(req, res)` handlers
+
+## Deploy Settings
+
+Use these settings in Boltic's serverless function screen:
+
+| Setting | Value |
+|---|---|
+| Runtime | Node.js 18 or newer |
+| Entry file | `serverless/boltic.js` |
+| Handler | `handler` |
+| Method | HTTP POST |
+| Timeout | 30 seconds for validate/dry-run; longer for live ingest |
+
+For large catalog loads, avoid sending all 60,000 SKUs in one request. Trigger the function in chunks, for example 500-1,000 rows per invocation. Serverless functions are not a good place to rely on local checkpoint files, so use chunk-level retry from the workflow/orchestrator.
+
+## Environment Variables
+
+Only required for live Fynd ingestion:
+
+```text
+FYND_COMPANY_ID=your-development-company-id
+FYND_API_KEY=your-api-key
+FYND_API_SECRET=your-api-secret
+FYND_DOMAIN=https://api.fynd.com
+```
+
+Optional:
+
+```text
+FYND_PRODUCT_ENDPOINT=/service/platform/catalog/v1.0/company/<company_id>/products/
+```
+
+## Request Body
+
+Send either an array of legacy rows directly or an object with `rows`.
+
+```json
+{
+  "action": "dry-run",
+  "rows": [
+    {
+      "Product Name": "Everyday Cotton Tee",
+      "SKU": "NW-TSH-001",
+      "Brand Name": "Northwind Apparel",
+      "size variants": "S/M/L",
+      "MRP": "₹1,299.00",
+      "Image URL": "https://example.com/northwind/everyday-cotton-tee.jpg"
+    }
+  ]
+}
+```
+
+Supported actions:
+
+| Action | Behavior |
+|---|---|
+| `validate` | Normalizes rows and returns valid products plus invalid-row report. |
+| `dry-run` or `preview` | Returns Fynd product payloads and a dry-run ingest summary. No Fynd API call is made. |
+| `ingest` with `"live": false` | Same as dry-run, useful as a safe default. |
+| `ingest` with `"live": true` | Calls Fynd using environment credentials. |
+
+## Example cURL
+
+```bash
+curl -X POST "$BOLTIC_FUNCTION_URL/dry-run" \
+  -H "content-type: application/json" \
+  --data @data/northwind_legacy_export.json
+```
+
+For live ingestion:
+
+```bash
+curl -X POST "$BOLTIC_FUNCTION_URL/ingest" \
+  -H "content-type: application/json" \
+  --data '{
+    "live": true,
+    "rows": [
+      {
+        "name": "Canvas Tote",
+        "sku": "NW-ACC-010",
+        "brand": "Northwind Apparel",
+        "sizes": "One Size",
+        "price": "₹699",
+        "image": "https://example.com/northwind/canvas-tote.jpg"
+      }
+    ]
+  }'
+```
+
+## Response Shape
+
+```json
+{
+  "summary": {
+    "total_rows": 1,
+    "valid_products": 1,
+    "invalid_rows": 0,
+    "warning_count": 0
+  },
+  "invalidRows": [],
+  "warnings": [],
+  "payloads": [],
+  "ingestion": {
+    "dry_run": true,
+    "summary": {
+      "attempted": 1,
+      "succeeded": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "results": []
+  }
+}
+```
+
+## Operational Notes
+
+- Keep `live` false until the validation report is clean and payloads are reviewed.
+- Use chunked invocation for full-catalog loads.
+- Store function logs and API responses as evidence for the case-study submission.
+- Do not put API keys in the request body; keep them in Boltic environment variables.
+

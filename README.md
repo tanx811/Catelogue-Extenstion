@@ -10,6 +10,7 @@ The project reads Northwind Apparel's messy legacy catalog export, normalizes an
 - Transformer and validator: `src/normalizer.js`
 - Rate-limited, checkpointed migration runner: `src/ingest.js`
 - FDK route adapter for a private extension: `src/extension-routes.js`
+- Boltic/serverless HTTP function entrypoint: `serverless/boltic.js`
 - CLI for validation, dry-run payload generation, and live ingest: `bin/catalog-migrate.js`
 - Tests for duplicate SKU, missing fields, malformed row, dirty price, bad image URL, and variant splitting
 - Part B solutioning write-up: `docs/part-b-solutioning.md`
@@ -68,6 +69,62 @@ No API call is made in dry-run mode.
 
 ```bash
 npm test
+```
+
+## Boltic serverless usage
+
+Deploy `serverless/boltic.js` as a Node.js 18+ HTTP function. Use handler name `handler`.
+
+The function accepts `POST` JSON bodies in either of these forms:
+
+```json
+[
+  {
+    "Product Name": "Everyday Cotton Tee",
+    "SKU": "NW-TSH-001",
+    "size variants": "S/M/L",
+    "MRP": "₹1,299.00",
+    "Image URL": "https://example.com/northwind/everyday-cotton-tee.jpg"
+  }
+]
+```
+
+or:
+
+```json
+{
+  "action": "dry-run",
+  "rows": []
+}
+```
+
+Supported actions are `validate`, `dry-run`, `preview`, and `ingest`.
+
+Live ingestion is deliberately opt-in:
+
+```json
+{
+  "action": "ingest",
+  "live": true,
+  "rows": []
+}
+```
+
+Set Fynd credentials as Boltic environment variables, not in the request body:
+
+```text
+FYND_COMPANY_ID
+FYND_API_KEY
+FYND_API_SECRET
+FYND_DOMAIN
+```
+
+For deployment details and request/response examples, see `docs/boltic-serverless.md`.
+
+Local smoke test:
+
+```bash
+npm run serverless:smoke
 ```
 
 ## Private Fynd extension flow
@@ -136,4 +193,3 @@ See `evidence/README.md` for the exact checklist.
 ## Known limitation for this submission copy
 
 I could not perform the actual Fynd account setup or create products from this machine because it requires your Fynd Partners login, development company, and API credentials. The code is wired for that flow and has a deterministic dry-run path so the reviewer can see the transformer behavior before credentials are added.
-
