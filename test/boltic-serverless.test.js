@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const sampleRows = require("../data/northwind_legacy_export.json");
+const generatedHandler = require("../handler");
 const rootHandler = require("../index");
 const bolticHandler = require("../serverless/boltic");
 const { runServerless } = bolticHandler;
@@ -23,6 +24,15 @@ test("serverless handler returns health metadata", async () => {
 test("root index exports index.handler compatibility shim", async () => {
   assert.equal(typeof rootHandler.handler, "function");
   const response = await rootHandler.handler({ httpMethod: "GET", path: "/" });
+  const body = parse(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.service, "northwind-catalog-serverless");
+});
+
+test("root handler exports Boltic's handler.handler entrypoint", async () => {
+  assert.equal(typeof generatedHandler.handler, "function");
+  const response = await generatedHandler.handler({ httpMethod: "GET", path: "/" });
   const body = parse(response);
 
   assert.equal(response.statusCode, 200);

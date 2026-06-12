@@ -19,13 +19,13 @@ Use these settings in Boltic's serverless function screen:
 
 | Setting | Value |
 |---|---|
-| Runtime | Node.js 18 or newer |
-| Entry file | `index.js` |
+| Runtime | Node.js 20 |
+| Entry file | `handler.js` |
 | Handler | `handler` |
 | Method | HTTP POST |
 | Timeout | 30 seconds for validate/dry-run; longer for live ingest |
 
-If Boltic lets you choose a nested file directly, `serverless/boltic.js` with handler `handler` also works. The root `index.js` file exists as a compatibility shim for platforms that only look for `index.handler`.
+If Boltic asks for a handler string, use `handler.handler`. `index.handler` and `serverless/boltic.handler` also work as compatibility shims, but Boltic's Node.js docs list `handler.handler`.
 
 For large catalog loads, avoid sending all 60,000 SKUs in one request. Trigger the function in chunks, for example 500-1,000 rows per invocation. Serverless functions are not a good place to rely on local checkpoint files, so use chunk-level retry from the workflow/orchestrator.
 
