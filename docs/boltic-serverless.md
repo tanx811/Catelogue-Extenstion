@@ -29,6 +29,8 @@ If Boltic asks for a handler string, use `handler.handler`. `index.handler` and 
 
 The root `handler.js` file is self-contained. Boltic blueprint/code publish uploads only that handler file into `CodeOpts.Code`, so it cannot rely on local imports from `src/` or `serverless/`.
 
+The deployed root URL renders a small browser UI for validation and dry-run payload generation. The JSON health endpoint is available at `/health`.
+
 For large catalog loads, avoid sending all 60,000 SKUs in one request. Trigger the function in chunks, for example 500-1,000 rows per invocation. Serverless functions are not a good place to rely on local checkpoint files, so use chunk-level retry from the workflow/orchestrator.
 
 ## Environment Variables

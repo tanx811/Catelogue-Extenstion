@@ -23,7 +23,7 @@ test("serverless handler returns health metadata", async () => {
 
 test("root index exports index.handler compatibility shim", async () => {
   assert.equal(typeof rootHandler.handler, "function");
-  const response = await rootHandler.handler({ httpMethod: "GET", path: "/" });
+  const response = await rootHandler.handler({ httpMethod: "GET", path: "/health" });
   const body = parse(response);
 
   assert.equal(response.statusCode, 200);
@@ -33,9 +33,18 @@ test("root index exports index.handler compatibility shim", async () => {
 test("root handler exports Boltic's handler.handler entrypoint", async () => {
   assert.equal(typeof generatedHandler.handler, "function");
   const response = await generatedHandler.handler({ httpMethod: "GET", path: "/" });
+
+  assert.equal(response.statusCode, 200);
+  assert.match(response.headers["content-type"], /text\/html/);
+  assert.match(response.body, /Northwind Catalog Tool/);
+});
+
+test("root handler keeps JSON health endpoint", async () => {
+  const response = await generatedHandler.handler({ httpMethod: "GET", path: "/health" });
   const body = parse(response);
 
   assert.equal(response.statusCode, 200);
+  assert.equal(body.ok, true);
   assert.equal(body.service, "northwind-catalog-serverless");
 });
 

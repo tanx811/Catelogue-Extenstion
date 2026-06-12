@@ -85,6 +85,8 @@ handler.handler
 
 The root `handler.js` is intentionally self-contained because Boltic blueprint/code publish uploads only the handler source into `CodeOpts.Code`. The richer local source tree remains useful for tests, CLI dry-runs, and GitHub review, but the deployable Boltic function does not depend on local `src/*` files.
 
+Open the deployed URL in a browser to use the built-in catalog validation UI. Use `/health` when you want the raw JSON health response.
+
 The function accepts `POST` JSON bodies in either of these forms:
 
 ```json

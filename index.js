@@ -1,9 +1,8 @@
 "use strict";
 
-const bolticHandler = require("./serverless/boltic");
+const generatedHandler = require("./handler");
 
-module.exports = bolticHandler;
-module.exports.handler = bolticHandler;
-module.exports.default = bolticHandler;
-module.exports.runServerless = bolticHandler.runServerless;
-
+module.exports = generatedHandler.handler;
+module.exports.handler = generatedHandler.handler;
+module.exports.default = generatedHandler.handler;
+module.exports.runServerless = generatedHandler.runServerless;

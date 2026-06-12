@@ -7,6 +7,11 @@ const JSON_HEADERS = {
   "access-control-allow-headers": "content-type,authorization"
 };
 
+const HTML_HEADERS = {
+  ...JSON_HEADERS,
+  "content-type": "text/html; charset=utf-8"
+};
+
 const FIELD_ALIASES = {
   name: ["product name", "name", "title", "item_name", "product_title"],
   sku: ["sku", "sku_code", "item code", "seller_identifier", "item_code"],
@@ -37,15 +42,30 @@ function jsonResponse(statusCode, payload) {
   };
 }
 
+function htmlResponse(statusCode, body) {
+  return {
+    statusCode,
+    headers: HTML_HEADERS,
+    body
+  };
+}
+
 function sendExpressResponse(res, response) {
   if (!res) return response;
+
+  const contentType = response.headers?.["content-type"] || "";
 
   if (typeof res.status === "function" && typeof res.json === "function") {
     res.status(response.statusCode);
     Object.entries(response.headers).forEach(([key, value]) => {
       if (typeof res.setHeader === "function") res.setHeader(key, value);
     });
-    return res.json(JSON.parse(response.body || "{}"));
+    if (contentType.includes("json")) {
+      return res.json(JSON.parse(response.body || "{}"));
+    }
+    if (typeof res.send === "function") return res.send(response.body);
+    if (typeof res.end === "function") return res.end(response.body);
+    return response;
   }
 
   if (typeof res.setHeader === "function") {
@@ -221,6 +241,226 @@ function sizeSku(sku, size) {
 
 function validationError(code, message, field) {
   return { code, message, field };
+}
+
+function renderWebPage() {
+  const sampleRows = [
+    {
+      "Product Name": "Everyday Cotton Tee",
+      SKU: "NW-TSH-001",
+      "Brand Name": "Northwind Apparel",
+      "size variants": "S/M/L",
+      MRP: "INR 1299",
+      "Image URL": "https://example.com/northwind/everyday-cotton-tee.jpg",
+      Description: "Core cotton crew neck tee.",
+      Color: "Navy"
+    },
+    {
+      name: "Duplicate Tee",
+      sku: "nw-tsh-001",
+      brand: "Northwind Apparel",
+      sizes: "XL",
+      price: "Rs. 1399",
+      image: "https://example.com/northwind/everyday-cotton-tee-xl.jpg"
+    },
+    {
+      title: "Invalid Image Polo",
+      sku_code: "NW-PLO-310",
+      brand: "Northwind Apparel",
+      size: "S/M",
+      "list price": "INR 1899",
+      image_url: "htp://bad url"
+    }
+  ];
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Northwind Catalog Tool</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5d6673;
+      --line: #d9dee7;
+      --soft: #f6f8fb;
+      --accent: #1264a3;
+      --bad: #a83232;
+      --good: #1f7a4d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+    }
+    header {
+      border-bottom: 1px solid var(--line);
+      padding: 18px 24px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.95fr) minmax(280px, 1.05fr);
+      min-height: calc(100vh - 62px);
+    }
+    section {
+      min-width: 0;
+      padding: 20px 24px;
+    }
+    section + section {
+      border-left: 1px solid var(--line);
+      background: var(--soft);
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    button {
+      border: 1px solid var(--line);
+      background: #ffffff;
+      color: var(--ink);
+      min-height: 36px;
+      padding: 0 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #ffffff;
+    }
+    button:disabled {
+      cursor: wait;
+      opacity: 0.68;
+    }
+    textarea, pre {
+      width: 100%;
+      min-height: 520px;
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      background: #ffffff;
+      color: var(--ink);
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .status {
+      min-height: 22px;
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .status.good { color: var(--good); }
+    .status.bad { color: var(--bad); }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      section + section {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+      textarea, pre { min-height: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Northwind Catalog Tool</h1>
+  </header>
+  <main>
+    <section>
+      <div class="toolbar">
+        <button class="primary" data-action="dry-run">Dry Run</button>
+        <button data-action="validate">Validate</button>
+        <button id="sample" type="button">Sample</button>
+        <button id="clear" type="button">Clear</button>
+      </div>
+      <textarea id="input" spellcheck="false" aria-label="Catalog JSON input"></textarea>
+    </section>
+    <section>
+      <p id="status" class="status">Ready</p>
+      <pre id="output" aria-live="polite">{}</pre>
+    </section>
+  </main>
+  <script>
+    const sampleRows = ${JSON.stringify(sampleRows, null, 2)};
+    const input = document.getElementById("input");
+    const output = document.getElementById("output");
+    const status = document.getElementById("status");
+    const buttons = Array.from(document.querySelectorAll("button[data-action]"));
+
+    function setStatus(text, state) {
+      status.textContent = text;
+      status.className = "status" + (state ? " " + state : "");
+    }
+
+    function setBusy(isBusy) {
+      buttons.forEach((button) => {
+        button.disabled = isBusy;
+      });
+    }
+
+    async function run(action) {
+      setBusy(true);
+      setStatus("Running " + action + "...");
+      output.textContent = "{}";
+
+      try {
+        const parsed = JSON.parse(input.value);
+        const body = Array.isArray(parsed) ? { action, rows: parsed } : { action, ...parsed };
+        const response = await fetch(window.location.href, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        output.textContent = JSON.stringify(data, null, 2);
+        setStatus(response.ok ? "Done" : "Request failed", response.ok ? "good" : "bad");
+      } catch (error) {
+        output.textContent = JSON.stringify({ error: error.message }, null, 2);
+        setStatus("Invalid request", "bad");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    document.getElementById("sample").addEventListener("click", () => {
+      input.value = JSON.stringify(sampleRows, null, 2);
+      output.textContent = "{}";
+      setStatus("Ready");
+    });
+
+    document.getElementById("clear").addEventListener("click", () => {
+      input.value = "";
+      output.textContent = "{}";
+      setStatus("Ready");
+    });
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => run(button.dataset.action));
+    });
+
+    input.value = JSON.stringify(sampleRows, null, 2);
+  </script>
+</body>
+</html>`;
 }
 
 function normalizeRow(rawRow, index, seenSkus) {
@@ -447,7 +687,7 @@ async function runServerless(input = {}) {
 
   if (method === "OPTIONS") return jsonResponse(204, {});
 
-  if (method === "GET") {
+  if (method === "GET" && (path.endsWith("/health") || query.format === "json")) {
     return jsonResponse(200, {
       ok: true,
       service: "northwind-catalog-serverless",
@@ -459,6 +699,8 @@ async function runServerless(input = {}) {
       }
     });
   }
+
+  if (method === "GET") return htmlResponse(200, renderWebPage());
 
   if (method !== "POST") {
     return jsonResponse(405, {
