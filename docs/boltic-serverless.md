@@ -27,6 +27,8 @@ Use these settings in Boltic's serverless function screen:
 
 If Boltic asks for a handler string, use `handler.handler`. `index.handler` and `serverless/boltic.handler` also work as compatibility shims, but Boltic's Node.js docs list `handler.handler`.
 
+The root `handler.js` file is self-contained. Boltic blueprint/code publish uploads only that handler file into `CodeOpts.Code`, so it cannot rely on local imports from `src/` or `serverless/`.
+
 For large catalog loads, avoid sending all 60,000 SKUs in one request. Trigger the function in chunks, for example 500-1,000 rows per invocation. Serverless functions are not a good place to rely on local checkpoint files, so use chunk-level retry from the workflow/orchestrator.
 
 ## Environment Variables
@@ -72,8 +74,7 @@ Supported actions:
 |---|---|
 | `validate` | Normalizes rows and returns valid products plus invalid-row report. |
 | `dry-run` or `preview` | Returns Fynd product payloads and a dry-run ingest summary. No Fynd API call is made. |
-| `ingest` with `"live": false` | Same as dry-run, useful as a safe default. |
-| `ingest` with `"live": true` | Calls Fynd using environment credentials. |
+| `ingest` | Same as dry-run in the Boltic blueprint deployment. Use the repo CLI/FDK path for real Fynd API ingestion. |
 
 ## Example cURL
 

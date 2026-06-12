@@ -1,0 +1,27 @@
+app: "Catalogue-Extension"
+region: "asia-south1"
+handler: "handler.handler"
+language: "nodejs/20"
+
+serverlessConfig:
+  serverlessId: "c9ff5339-17e3-43b8-888e-53f58bedecbf"
+  Name: "Catalogue-Extension"
+  Description: "Northwind catalog transformer and validation endpoint"
+  Runtime: "code"
+  Env: {}
+  PortMap: []
+  Scaling:
+    AutoStop: false
+    Min: 1
+    Max: 1
+    MaxIdleTime: 300
+  Resources:
+    CPU: 0.1
+    MemoryMB: 128
+    MemoryMaxMB: 128
+  Timeout: 60
+  Validations: null
+
+build:
+  builtin: dockerfile
+  ignorefile: .gitignore

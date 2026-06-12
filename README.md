@@ -83,6 +83,8 @@ handler.handler
 
 `index.handler` and `serverless/boltic.handler` are also exported as compatibility shims, but Boltic's docs list `handler.handler` for Node.js.
 
+The root `handler.js` is intentionally self-contained because Boltic blueprint/code publish uploads only the handler source into `CodeOpts.Code`. The richer local source tree remains useful for tests, CLI dry-runs, and GitHub review, but the deployable Boltic function does not depend on local `src/*` files.
+
 The function accepts `POST` JSON bodies in either of these forms:
 
 ```json
@@ -108,12 +110,11 @@ or:
 
 Supported actions are `validate`, `dry-run`, `preview`, and `ingest`.
 
-Live ingestion is deliberately opt-in:
+In the single-file Boltic blueprint deployment, `ingest` returns a dry-run payload summary. Use that for validation and review inside Boltic. For real Fynd ingestion, use the repo CLI/FDK path where the Fynd SDK and credentials are available.
 
 ```json
 {
   "action": "ingest",
-  "live": true,
   "rows": []
 }
 ```
