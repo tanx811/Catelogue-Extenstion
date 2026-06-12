@@ -73,7 +73,13 @@ npm test
 
 ## Boltic serverless usage
 
-Deploy `serverless/boltic.js` as a Node.js 18+ HTTP function. Use handler name `handler`.
+Deploy either root `index.js` or `serverless/boltic.js` as a Node.js 18+ HTTP function. Use handler name `handler`.
+
+If the platform asks for a single handler string, use:
+
+```text
+index.handler
+```
 
 The function accepts `POST` JSON bodies in either of these forms:
 

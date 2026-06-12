@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Northwind Apparel legacy catalog transformer and Fynd ingestion helper for a private extension.",
-  "main": "src/extension-routes.js",
+  "main": "index.js",
   "bin": {
     "northwind-catalog": "./bin/catalog-migrate.js"
   },
@@ -17,7 +17,7 @@
   "engines": {
     "node": ">=18"
   },
-  "dependencies": {
+  "optionalDependencies": {
     "@gofynd/fdk-client-javascript": "^3.0.0"
   }
 }

@@ -20,10 +20,12 @@ Use these settings in Boltic's serverless function screen:
 | Setting | Value |
 |---|---|
 | Runtime | Node.js 18 or newer |
-| Entry file | `serverless/boltic.js` |
+| Entry file | `index.js` |
 | Handler | `handler` |
 | Method | HTTP POST |
 | Timeout | 30 seconds for validate/dry-run; longer for live ingest |
+
+If Boltic lets you choose a nested file directly, `serverless/boltic.js` with handler `handler` also works. The root `index.js` file exists as a compatibility shim for platforms that only look for `index.handler`.
 
 For large catalog loads, avoid sending all 60,000 SKUs in one request. Trigger the function in chunks, for example 500-1,000 rows per invocation. Serverless functions are not a good place to rely on local checkpoint files, so use chunk-level retry from the workflow/orchestrator.
 
@@ -133,4 +135,3 @@ curl -X POST "$BOLTIC_FUNCTION_URL/ingest" \
 - Use chunked invocation for full-catalog loads.
 - Store function logs and API responses as evidence for the case-study submission.
 - Do not put API keys in the request body; keep them in Boltic environment variables.
-
