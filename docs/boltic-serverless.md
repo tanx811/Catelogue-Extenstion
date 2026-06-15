@@ -31,6 +31,12 @@ The root `handler.js` file is self-contained. Boltic blueprint/code publish uplo
 
 The deployed root URL renders a small browser UI for validation and dry-run payload generation. The JSON health endpoint is available at `/health`.
 
+## What Dry Run Does
+
+Dry Run is a safe simulation of the migration. It parses the submitted rows, maps messy legacy field names, validates required fields, normalizes SKUs/prices/sizes, builds Fynd-style product payloads, and returns a simulated ingestion result.
+
+Dry Run does not call Fynd, require Fynd OAuth, use API credentials, create products, or modify catalog data. It is intended for prototype review and evidence collection before any live ingestion is attempted.
+
 ## Downloadable Prototype Extension
 
 The root UI includes a **Download Prototype Extension** button. It generates a ZIP from the serverless handler itself, so it works without npm packages, Fynd OAuth, or a build step.
@@ -54,6 +60,8 @@ Download routes:
 | `GET /download` or `GET ?download=zip` | Returns the ZIP directly. |
 
 For large catalog loads, avoid sending all 60,000 SKUs in one request. Trigger the function in chunks, for example 500-1,000 rows per invocation. Serverless functions are not a good place to rely on local checkpoint files, so use chunk-level retry from the workflow/orchestrator.
+
+For the full reviewer/demo script, see `docs/prototype-demo-guide.md`.
 
 ## Environment Variables
 

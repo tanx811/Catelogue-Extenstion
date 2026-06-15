@@ -15,6 +15,7 @@ The project reads Northwind Apparel's messy legacy catalog export, normalizes an
 - CLI for validation, dry-run payload generation, and live ingest: `bin/catalog-migrate.js`
 - Tests for duplicate SKU, missing fields, malformed row, dirty price, bad image URL, and variant splitting
 - Part B solutioning write-up: `docs/part-b-solutioning.md`
+- End-to-end prototype demo guide: `docs/prototype-demo-guide.md`
 
 ## Assumptions
 
@@ -58,6 +59,8 @@ The report is written to:
 npm run dry-run
 ```
 
+Dry-run mode is a safe simulation. It validates the legacy rows, normalizes fields, expands size variants, builds Fynd-style product payloads, and returns a simulated success result for each valid product. It does not call Fynd, require OAuth, need API keys, create products, or modify catalog data.
+
 This writes:
 
 - `reports/fynd-product-payloads.json`
@@ -94,6 +97,8 @@ Download endpoints:
 
 - `GET /extension-package` or `GET ?download=package`: JSON metadata plus base64 ZIP, used by the UI button.
 - `GET /download` or `GET ?download=zip`: direct ZIP response named `northwind-catalog-extension-prototype.zip`.
+
+For a complete reviewer/demo script, see `docs/prototype-demo-guide.md`.
 
 The function accepts `POST` JSON bodies in either of these forms:
 
