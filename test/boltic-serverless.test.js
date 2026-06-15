@@ -37,6 +37,7 @@ test("root handler exports Boltic's handler.handler entrypoint", async () => {
   assert.equal(response.statusCode, 200);
   assert.match(response.headers["content-type"], /text\/html/);
   assert.match(response.body, /Northwind Catalog Tool/);
+  assert.match(response.body, /Download Prototype Extension/);
 });
 
 test("root handler keeps JSON health endpoint", async () => {
@@ -46,6 +47,36 @@ test("root handler keeps JSON health endpoint", async () => {
   assert.equal(response.statusCode, 200);
   assert.equal(body.ok, true);
   assert.equal(body.service, "northwind-catalog-serverless");
+  assert.ok(body.endpoints.includes("GET /download"));
+});
+
+test("root handler returns downloadable prototype extension metadata", async () => {
+  const response = await generatedHandler.handler({
+    httpMethod: "GET",
+    path: "/extension-package",
+    headers: { host: "catalogue-demo.example.com", "x-forwarded-proto": "https" }
+  });
+  const body = parse(response);
+  const archive = Buffer.from(body.base64, "base64");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.filename, "northwind-catalog-extension-prototype.zip");
+  assert.equal(body.mimeType, "application/zip");
+  assert.equal(body.baseUrl, "https://catalogue-demo.example.com");
+  assert.ok(body.files.includes("northwind-catalog-extension-prototype/manifest.json"));
+  assert.ok(body.files.includes("northwind-catalog-extension-prototype/popup.js"));
+  assert.equal(archive.subarray(0, 2).toString("utf8"), "PK");
+});
+
+test("root handler returns direct ZIP download response", async () => {
+  const response = await generatedHandler.handler({ httpMethod: "GET", path: "/download" });
+  const archive = Buffer.from(response.body, "base64");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.isBase64Encoded, true);
+  assert.match(response.headers["content-type"], /application\/zip/);
+  assert.match(response.headers["content-disposition"], /northwind-catalog-extension-prototype\.zip/);
+  assert.equal(archive.subarray(0, 2).toString("utf8"), "PK");
 });
 
 test("serverless validate action reports sample edge cases", async () => {

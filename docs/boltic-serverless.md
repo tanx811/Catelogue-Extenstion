@@ -31,6 +31,28 @@ The root `handler.js` file is self-contained. Boltic blueprint/code publish uplo
 
 The deployed root URL renders a small browser UI for validation and dry-run payload generation. The JSON health endpoint is available at `/health`.
 
+## Downloadable Prototype Extension
+
+The root UI includes a **Download Prototype Extension** button. It generates a ZIP from the serverless handler itself, so it works without npm packages, Fynd OAuth, or a build step.
+
+Demo flow:
+
+1. Open the deployed Boltic serverless URL.
+2. Click **Download Prototype Extension**.
+3. Unzip `northwind-catalog-extension-prototype.zip`.
+4. Open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**.
+5. Select the unzipped `northwind-catalog-extension-prototype` folder.
+6. Open the extension popup and run **Dry Run** or **Validate**.
+
+The generated popup is configured to call the same deployed serverless origin for `/validate` and `/dry-run`.
+
+Download routes:
+
+| Route | Behavior |
+|---|---|
+| `GET /extension-package` or `GET ?download=package` | Returns JSON metadata with a base64 ZIP. Used by the UI. |
+| `GET /download` or `GET ?download=zip` | Returns the ZIP directly. |
+
 For large catalog loads, avoid sending all 60,000 SKUs in one request. Trigger the function in chunks, for example 500-1,000 rows per invocation. Serverless functions are not a good place to rely on local checkpoint files, so use chunk-level retry from the workflow/orchestrator.
 
 ## Environment Variables

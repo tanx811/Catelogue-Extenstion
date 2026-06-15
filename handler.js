@@ -12,6 +12,13 @@ const HTML_HEADERS = {
   "content-type": "text/html; charset=utf-8"
 };
 
+const ZIP_HEADERS = {
+  ...JSON_HEADERS,
+  "content-type": "application/zip"
+};
+
+const EXTENSION_PACKAGE_NAME = "northwind-catalog-extension-prototype.zip";
+
 const FIELD_ALIASES = {
   name: ["product name", "name", "title", "item_name", "product_title"],
   sku: ["sku", "sku_code", "item code", "seller_identifier", "item_code"],
@@ -34,6 +41,35 @@ const DEFAULTS = {
   currency: "INR"
 };
 
+const SAMPLE_ROWS = [
+  {
+    "Product Name": "Everyday Cotton Tee",
+    SKU: "NW-TSH-001",
+    "Brand Name": "Northwind Apparel",
+    "size variants": "S/M/L",
+    MRP: "INR 1299",
+    "Image URL": "https://example.com/northwind/everyday-cotton-tee.jpg",
+    Description: "Core cotton crew neck tee.",
+    Color: "Navy"
+  },
+  {
+    name: "Duplicate Tee",
+    sku: "nw-tsh-001",
+    brand: "Northwind Apparel",
+    sizes: "XL",
+    price: "Rs. 1399",
+    image: "https://example.com/northwind/everyday-cotton-tee-xl.jpg"
+  },
+  {
+    title: "Invalid Image Polo",
+    sku_code: "NW-PLO-310",
+    brand: "Northwind Apparel",
+    size: "S/M",
+    "list price": "INR 1899",
+    image_url: "htp://bad url"
+  }
+];
+
 function jsonResponse(statusCode, payload) {
   return {
     statusCode,
@@ -50,10 +86,26 @@ function htmlResponse(statusCode, body) {
   };
 }
 
+function zipResponse(statusCode, filename, bodyBuffer) {
+  return {
+    statusCode,
+    headers: {
+      ...ZIP_HEADERS,
+      "content-disposition": `attachment; filename="${filename}"`,
+      "content-length": String(bodyBuffer.length)
+    },
+    body: bodyBuffer.toString("base64"),
+    isBase64Encoded: true
+  };
+}
+
 function sendExpressResponse(res, response) {
   if (!res) return response;
 
   const contentType = response.headers?.["content-type"] || "";
+  const responseBody = response.isBase64Encoded
+    ? Buffer.from(response.body || "", "base64")
+    : response.body;
 
   if (typeof res.status === "function" && typeof res.json === "function") {
     res.status(response.statusCode);
@@ -63,8 +115,8 @@ function sendExpressResponse(res, response) {
     if (contentType.includes("json")) {
       return res.json(JSON.parse(response.body || "{}"));
     }
-    if (typeof res.send === "function") return res.send(response.body);
-    if (typeof res.end === "function") return res.end(response.body);
+    if (typeof res.send === "function") return res.send(responseBody);
+    if (typeof res.end === "function") return res.end(responseBody);
     return response;
   }
 
@@ -73,7 +125,7 @@ function sendExpressResponse(res, response) {
   }
 
   if (typeof res.writeHead === "function") res.writeHead(response.statusCode);
-  if (typeof res.end === "function") return res.end(response.body);
+  if (typeof res.end === "function") return res.end(responseBody);
   return response;
 }
 
@@ -109,6 +161,43 @@ function parseQuery(input = {}) {
   } catch (_error) {
     return {};
   }
+}
+
+function getRequestBaseUrl(input = {}) {
+  const headers = input.headers || {};
+  const forwardedHost = getHeader(headers, "x-forwarded-host");
+  const host = forwardedHost || getHeader(headers, "host");
+  const forwardedProto = getHeader(headers, "x-forwarded-proto");
+  const normalizedHost = String(host || "");
+  const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])(?::|$)/.test(normalizedHost);
+  const proto = forwardedProto || (isLocalHost ? "http" : "https");
+
+  if (host) return `${proto}://${String(host).replace(/\/+$/, "")}`;
+
+  const candidate = input.url || input.rawUrl;
+  try {
+    return new URL(candidate).origin;
+  } catch (_error) {
+    return "https://serverless.local";
+  }
+}
+
+function shouldReturnPackage(path, query) {
+  return (
+    path.endsWith("/extension-package") ||
+    path.endsWith("/package") ||
+    query.download === "package" ||
+    query.format === "package"
+  );
+}
+
+function shouldReturnZip(path, query) {
+  return (
+    path.endsWith("/download") ||
+    path.endsWith("/prototype.zip") ||
+    query.download === "zip" ||
+    query.format === "zip"
+  );
 }
 
 function parseBody(input = {}) {
@@ -243,35 +332,371 @@ function validationError(code, message, field) {
   return { code, message, field };
 }
 
-function renderWebPage() {
-  const sampleRows = [
-    {
-      "Product Name": "Everyday Cotton Tee",
-      SKU: "NW-TSH-001",
-      "Brand Name": "Northwind Apparel",
-      "size variants": "S/M/L",
-      MRP: "INR 1299",
-      "Image URL": "https://example.com/northwind/everyday-cotton-tee.jpg",
-      Description: "Core cotton crew neck tee.",
-      Color: "Navy"
-    },
-    {
-      name: "Duplicate Tee",
-      sku: "nw-tsh-001",
-      brand: "Northwind Apparel",
-      sizes: "XL",
-      price: "Rs. 1399",
-      image: "https://example.com/northwind/everyday-cotton-tee-xl.jpg"
-    },
-    {
-      title: "Invalid Image Polo",
-      sku_code: "NW-PLO-310",
-      brand: "Northwind Apparel",
-      size: "S/M",
-      "list price": "INR 1899",
-      image_url: "htp://bad url"
+function createCrcTable() {
+  const table = new Uint32Array(256);
+
+  for (let index = 0; index < 256; index += 1) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
     }
-  ];
+    table[index] = value >>> 0;
+  }
+
+  return table;
+}
+
+const CRC_TABLE = createCrcTable();
+
+function crc32(buffer) {
+  let crc = 0xffffffff;
+
+  for (const byte of buffer) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function getDosDateTime(date = new Date()) {
+  const year = Math.max(date.getFullYear(), 1980);
+  const dosTime =
+    (date.getHours() << 11) |
+    (date.getMinutes() << 5) |
+    Math.floor(date.getSeconds() / 2);
+  const dosDate =
+    ((year - 1980) << 9) |
+    ((date.getMonth() + 1) << 5) |
+    date.getDate();
+
+  return { dosTime, dosDate };
+}
+
+function createZip(files) {
+  const localParts = [];
+  const centralParts = [];
+  const { dosTime, dosDate } = getDosDateTime();
+  let offset = 0;
+
+  Object.entries(files).forEach(([name, content]) => {
+    const nameBuffer = Buffer.from(name, "utf8");
+    const dataBuffer = Buffer.isBuffer(content) ? content : Buffer.from(String(content), "utf8");
+    const checksum = crc32(dataBuffer);
+    const utf8Flag = 0x0800;
+
+    const localHeader = Buffer.alloc(30);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(utf8Flag, 6);
+    localHeader.writeUInt16LE(0, 8);
+    localHeader.writeUInt16LE(dosTime, 10);
+    localHeader.writeUInt16LE(dosDate, 12);
+    localHeader.writeUInt32LE(checksum, 14);
+    localHeader.writeUInt32LE(dataBuffer.length, 18);
+    localHeader.writeUInt32LE(dataBuffer.length, 22);
+    localHeader.writeUInt16LE(nameBuffer.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+
+    localParts.push(localHeader, nameBuffer, dataBuffer);
+
+    const centralHeader = Buffer.alloc(46);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(utf8Flag, 8);
+    centralHeader.writeUInt16LE(0, 10);
+    centralHeader.writeUInt16LE(dosTime, 12);
+    centralHeader.writeUInt16LE(dosDate, 14);
+    centralHeader.writeUInt32LE(checksum, 16);
+    centralHeader.writeUInt32LE(dataBuffer.length, 20);
+    centralHeader.writeUInt32LE(dataBuffer.length, 24);
+    centralHeader.writeUInt16LE(nameBuffer.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+    centralParts.push(centralHeader, nameBuffer);
+
+    offset += localHeader.length + nameBuffer.length + dataBuffer.length;
+  });
+
+  const centralDirectory = Buffer.concat(centralParts);
+  const endRecord = Buffer.alloc(22);
+  endRecord.writeUInt32LE(0x06054b50, 0);
+  endRecord.writeUInt16LE(0, 4);
+  endRecord.writeUInt16LE(0, 6);
+  endRecord.writeUInt16LE(Object.keys(files).length, 8);
+  endRecord.writeUInt16LE(Object.keys(files).length, 10);
+  endRecord.writeUInt32LE(centralDirectory.length, 12);
+  endRecord.writeUInt32LE(offset, 16);
+  endRecord.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localParts, centralDirectory, endRecord]);
+}
+
+function getPackageOrigin(baseUrl) {
+  try {
+    return new URL(baseUrl).origin;
+  } catch (_error) {
+    return "https://serverless.local";
+  }
+}
+
+function buildExtensionPackageFiles(baseUrl) {
+  const origin = getPackageOrigin(baseUrl);
+  const root = "northwind-catalog-extension-prototype";
+  const manifest = {
+    manifest_version: 3,
+    name: "Northwind Catalog Prototype",
+    version: "1.0.0",
+    description: "Downloadable prototype extension for validating Northwind catalog rows against a Boltic serverless endpoint.",
+    action: {
+      default_title: "Northwind Catalog",
+      default_popup: "popup.html"
+    },
+    permissions: ["storage"],
+    host_permissions: [`${origin}/*`]
+  };
+
+  const popupHtml = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Northwind Catalog</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Northwind Catalog</h1>
+    <p>Prototype extension connected to Boltic serverless.</p>
+  </header>
+  <main>
+    <div class="toolbar">
+      <button id="dryRun" class="primary" type="button">Dry Run</button>
+      <button id="validate" type="button">Validate</button>
+      <button id="sample" type="button">Sample</button>
+    </div>
+    <label for="input">Legacy rows JSON</label>
+    <textarea id="input" spellcheck="false"></textarea>
+    <p id="status">Ready</p>
+    <pre id="output">{}</pre>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>`;
+
+  const popupCss = `:root {
+  color-scheme: light;
+  --ink: #16202a;
+  --muted: #5d6673;
+  --line: #d8dee8;
+  --soft: #f6f8fb;
+  --accent: #1264a3;
+  --bad: #a83232;
+  --good: #1f7a4d;
+}
+* { box-sizing: border-box; }
+body {
+  width: 420px;
+  min-height: 560px;
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  background: #fff;
+}
+header {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+h1 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+main { padding: 14px 16px 16px; }
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+textarea, pre {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+textarea {
+  min-height: 168px;
+  resize: vertical;
+}
+pre {
+  min-height: 170px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--soft);
+}
+#status {
+  min-height: 20px;
+  margin: 10px 0 8px;
+}
+#status.good { color: var(--good); }
+#status.bad { color: var(--bad); }`;
+
+  const popupJs = `"use strict";
+
+const SERVERLESS_BASE_URL = ${JSON.stringify(origin)};
+const SAMPLE_ROWS = ${JSON.stringify(SAMPLE_ROWS, null, 2)};
+
+const input = document.getElementById("input");
+const output = document.getElementById("output");
+const statusNode = document.getElementById("status");
+const buttons = Array.from(document.querySelectorAll("button"));
+
+function setStatus(text, state) {
+  statusNode.textContent = text;
+  statusNode.className = state || "";
+}
+
+function setBusy(isBusy) {
+  buttons.forEach((button) => {
+    button.disabled = isBusy;
+  });
+}
+
+async function run(action) {
+  setBusy(true);
+  setStatus("Running " + action + "...");
+  output.textContent = "{}";
+
+  try {
+    const parsed = JSON.parse(input.value);
+    const body = Array.isArray(parsed) ? { action, rows: parsed } : { action, ...parsed };
+    const response = await fetch(SERVERLESS_BASE_URL + "/" + action, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    output.textContent = JSON.stringify(data, null, 2);
+    setStatus(response.ok ? "Done" : "Request failed", response.ok ? "good" : "bad");
+  } catch (error) {
+    output.textContent = JSON.stringify({ error: error.message }, null, 2);
+    setStatus("Invalid request", "bad");
+  } finally {
+    setBusy(false);
+  }
+}
+
+document.getElementById("dryRun").addEventListener("click", () => run("dry-run"));
+document.getElementById("validate").addEventListener("click", () => run("validate"));
+document.getElementById("sample").addEventListener("click", () => {
+  input.value = JSON.stringify(SAMPLE_ROWS, null, 2);
+  output.textContent = "{}";
+  setStatus("Ready");
+});
+
+input.value = JSON.stringify(SAMPLE_ROWS, null, 2);`;
+
+  const config = {
+    prototype: "Northwind Catalog Prototype",
+    serverless_base_url: origin,
+    endpoints: {
+      validate: `${origin}/validate`,
+      dry_run: `${origin}/dry-run`,
+      ingest: `${origin}/ingest`
+    },
+    notes: [
+      "This is a downloadable prototype for demo purposes.",
+      "It calls the Boltic serverless endpoint and does not require Fynd OAuth.",
+      "Live Fynd ingestion remains disabled in the single-file serverless blueprint."
+    ]
+  };
+
+  const readme = `# Northwind Catalog Prototype Extension
+
+This ZIP is generated by the Boltic serverless prototype. It contains a small Chrome-compatible extension popup that validates messy Northwind catalog rows and previews Fynd-style payloads through the deployed serverless endpoint.
+
+## Demo steps
+
+1. Unzip this package.
+2. Open Chrome and go to chrome://extensions.
+3. Enable Developer mode.
+4. Choose Load unpacked and select the unzipped ${root} folder.
+5. Click the Northwind Catalog toolbar icon.
+6. Use Dry Run or Validate with the included sample rows.
+
+## Connected endpoint
+
+${origin}
+
+## Scope
+
+- Prototype only.
+- No Fynd OAuth is required.
+- No live product creation is performed.
+- The dry-run output is intended as review evidence for the catalog migration workflow.
+`;
+
+  return {
+    [`${root}/manifest.json`]: JSON.stringify(manifest, null, 2),
+    [`${root}/popup.html`]: popupHtml,
+    [`${root}/popup.css`]: popupCss,
+    [`${root}/popup.js`]: popupJs,
+    [`${root}/sample-data.json`]: JSON.stringify(SAMPLE_ROWS, null, 2),
+    [`${root}/extension.config.json`]: JSON.stringify(config, null, 2),
+    [`${root}/README.md`]: readme
+  };
+}
+
+function buildExtensionPackage(baseUrl) {
+  const files = buildExtensionPackageFiles(baseUrl);
+  const archive = createZip(files);
+
+  return {
+    filename: EXTENSION_PACKAGE_NAME,
+    mimeType: "application/zip",
+    bytes: archive.length,
+    baseUrl: getPackageOrigin(baseUrl),
+    files: Object.keys(files),
+    base64: archive.toString("base64"),
+    archive
+  };
+}
+
+function renderWebPage() {
 
   return `<!doctype html>
 <html lang="en">
@@ -342,6 +767,12 @@ function renderWebPage() {
       background: var(--accent);
       color: #ffffff;
     }
+    button.download {
+      margin-left: auto;
+      border-color: #1f7a4d;
+      color: #1f7a4d;
+      font-weight: 700;
+    }
     button:disabled {
       cursor: wait;
       opacity: 0.68;
@@ -391,6 +822,7 @@ function renderWebPage() {
         <button data-action="validate">Validate</button>
         <button id="sample" type="button">Sample</button>
         <button id="clear" type="button">Clear</button>
+        <button id="download" class="download" type="button">Download Prototype Extension</button>
       </div>
       <textarea id="input" spellcheck="false" aria-label="Catalog JSON input"></textarea>
     </section>
@@ -400,11 +832,12 @@ function renderWebPage() {
     </section>
   </main>
   <script>
-    const sampleRows = ${JSON.stringify(sampleRows, null, 2)};
+    const sampleRows = ${JSON.stringify(SAMPLE_ROWS, null, 2)};
     const input = document.getElementById("input");
     const output = document.getElementById("output");
     const status = document.getElementById("status");
     const buttons = Array.from(document.querySelectorAll("button[data-action]"));
+    const downloadButton = document.getElementById("download");
 
     function setStatus(text, state) {
       status.textContent = text;
@@ -417,6 +850,22 @@ function renderWebPage() {
       });
     }
 
+    function endpointUrl() {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("download");
+      url.searchParams.delete("format");
+      return url;
+    }
+
+    function decodeBase64(value) {
+      const binary = atob(value);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return bytes;
+    }
+
     async function run(action) {
       setBusy(true);
       setStatus("Running " + action + "...");
@@ -425,7 +874,7 @@ function renderWebPage() {
       try {
         const parsed = JSON.parse(input.value);
         const body = Array.isArray(parsed) ? { action, rows: parsed } : { action, ...parsed };
-        const response = await fetch(window.location.href, {
+        const response = await fetch(endpointUrl().href, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body)
@@ -438,6 +887,38 @@ function renderWebPage() {
         setStatus("Invalid request", "bad");
       } finally {
         setBusy(false);
+      }
+    }
+
+    async function downloadExtension() {
+      downloadButton.disabled = true;
+      setStatus("Preparing prototype extension...");
+
+      try {
+        const url = endpointUrl();
+        url.searchParams.set("download", "package");
+        const response = await fetch(url.href);
+        const data = await response.json();
+        const blob = new Blob([decodeBase64(data.base64)], { type: data.mimeType });
+        const link = document.createElement("a");
+        const objectUrl = URL.createObjectURL(blob);
+        link.href = objectUrl;
+        link.download = data.filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        output.textContent = JSON.stringify({
+          downloaded: data.filename,
+          bytes: data.bytes,
+          files: data.files
+        }, null, 2);
+        setStatus("Prototype extension downloaded", "good");
+      } catch (error) {
+        output.textContent = JSON.stringify({ error: error.message }, null, 2);
+        setStatus("Download failed", "bad");
+      } finally {
+        downloadButton.disabled = false;
       }
     }
 
@@ -456,6 +937,8 @@ function renderWebPage() {
     buttons.forEach((button) => {
       button.addEventListener("click", () => run(button.dataset.action));
     });
+
+    downloadButton.addEventListener("click", downloadExtension);
 
     input.value = JSON.stringify(sampleRows, null, 2);
   </script>
@@ -691,13 +1174,38 @@ async function runServerless(input = {}) {
     return jsonResponse(200, {
       ok: true,
       service: "northwind-catalog-serverless",
-      endpoints: ["POST /validate", "POST /dry-run", "POST /ingest"],
+      endpoints: [
+        "GET /",
+        "GET /extension-package",
+        "GET /download",
+        "POST /validate",
+        "POST /dry-run",
+        "POST /ingest"
+      ],
       body: {
         rows: "Legacy rows array",
         action: "validate | dry-run | ingest",
-        live: "Live Fynd ingest is disabled in this single-file Boltic blueprint; use dry-run output as review evidence."
+        live: "Live Fynd ingest is disabled in this single-file Boltic blueprint; use dry-run output as review evidence.",
+        prototype: "Use GET ?download=package for JSON metadata or GET ?download=zip for the prototype extension ZIP."
       }
     });
+  }
+
+  if (method === "GET" && shouldReturnPackage(path, query)) {
+    const pack = buildExtensionPackage(getRequestBaseUrl(input));
+    return jsonResponse(200, {
+      filename: pack.filename,
+      mimeType: pack.mimeType,
+      bytes: pack.bytes,
+      baseUrl: pack.baseUrl,
+      files: pack.files,
+      base64: pack.base64
+    });
+  }
+
+  if (method === "GET" && shouldReturnZip(path, query)) {
+    const pack = buildExtensionPackage(getRequestBaseUrl(input));
+    return zipResponse(200, pack.filename, pack.archive);
   }
 
   if (method === "GET") return htmlResponse(200, renderWebPage());
